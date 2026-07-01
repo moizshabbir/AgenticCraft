@@ -1,0 +1,10 @@
+{
+  "name": "AgentCraft",
+  "description": "A drag-and-drop web application that teaches kids AI and Agentic AI concepts.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
