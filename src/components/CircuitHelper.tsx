@@ -2,25 +2,17 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useQuestStore } from '../store/questStore';
 import { useLiveAudio } from './CircuitVoicePlayer';
 import { useCircuitInitialization } from '../hooks/useCircuitInitialization';
+import { translations } from '../constants/translations';
 
 export default function CircuitHelper() {
-  const { message, currentStep, isComplete, score, title } = useQuestStore();
+  const { message, isComplete, score, title, language, setLanguage } = useQuestStore();
   const [hasInteracted, setHasInteracted] = useState(false);
   const prevMessageRef = useRef(message);
 
-  const { isConnected, hasError, isSpeaking, speak, initAudio } = useLiveAudio();
+  const { isConnected, hasError, isSpeaking, speak, initAudio, fallbackSpeak } = useLiveAudio();
 
   useCircuitInitialization((text) => {
     // Handled by handleInteract
-  });
-
-  const fallbackSpeak = useRef((text: string) => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = 1.4;
-    utterance.rate = 1.1;
-    window.speechSynthesis.speak(utterance);
   });
 
   useEffect(() => {
@@ -29,32 +21,46 @@ export default function CircuitHelper() {
       if (hasInteracted) {
         if (hasError || (!isConnected && hasInteracted)) {
           // Fallback to TTS if Live API is unavailable
-          fallbackSpeak.current(message);
+          fallbackSpeak(message);
         } else {
           speak(message);
         }
       }
     }
-  }, [message, hasInteracted, speak, hasError, isConnected]);
+  }, [message, hasInteracted, speak, hasError, isConnected, language, fallbackSpeak]);
 
   const handleInteract = () => {
+    const welcomeMsg = translations[language].welcomeMsg;
     if (!hasInteracted) {
       setHasInteracted(true);
       initAudio();
       
-      const welcomeMsg = "Welcome Commander! This is AgentCraft! You're going to build a super-smart minion that actually thinks for itself. On your left is the Block Library—those are your tools! Drag blocks into the Canvas in the middle to build your logic chain. When you connect a Data Uplink to a Brain Core, you earn Brain Power points! You can test it all out in the Simulation Chamber on the right. Ready to make something awesome to trick and amaze your friends? Let's go!";
-      
       if (hasError) {
-        fallbackSpeak.current(welcomeMsg);
+        fallbackSpeak(welcomeMsg);
       } else {
         speak(welcomeMsg);
       }
     } else if (message) {
       if (hasError || !isConnected) {
-        fallbackSpeak.current(message);
+        fallbackSpeak(message);
       } else {
         speak(message);
       }
+    }
+  };
+
+  const handleLanguageChange = (newLang: 'en' | 'ur', e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLanguage(newLang);
+    initAudio();
+
+    const activeMsg = message || translations[newLang].welcomeMsg;
+    setHasInteracted(true);
+    
+    if (hasError || !isConnected) {
+      fallbackSpeak(activeMsg);
+    } else {
+      speak(activeMsg);
     }
   };
 
@@ -63,6 +69,30 @@ export default function CircuitHelper() {
       className="absolute bottom-6 right-6 z-50 flex flex-col items-end gap-4 cursor-pointer"
       onClick={handleInteract}
     >
+      {/* Language Switcher */}
+      <div className="mr-6 flex gap-2">
+        <button 
+          onClick={(e) => handleLanguageChange('en', e)}
+          className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full border tracking-wider transition-all duration-200 ${
+            language === 'en' 
+              ? 'bg-cyan-500/30 text-cyan-300 border-cyan-400/50 shadow-[0_0_8px_rgba(6,182,212,0.3)]' 
+              : 'bg-slate-900/60 text-slate-400 border-slate-700/50 hover:text-slate-300 hover:border-slate-600'
+          }`}
+        >
+          🗣️ English
+        </button>
+        <button 
+          onClick={(e) => handleLanguageChange('ur', e)}
+          className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full border tracking-wider transition-all duration-200 ${
+            language === 'ur' 
+              ? 'bg-cyan-500/30 text-cyan-300 border-cyan-400/50 shadow-[0_0_8px_rgba(6,182,212,0.3)]' 
+              : 'bg-slate-900/60 text-slate-400 border-slate-700/50 hover:text-slate-300 hover:border-slate-600'
+          }`}
+        >
+          🗣️ اردو
+        </button>
+      </div>
+
       {/* Score Badge */}
       <div className="mr-6 bg-cyan-950/80 border border-cyan-500/50 rounded-full px-4 py-1.5 flex items-center gap-2 shadow-[0_0_10px_rgba(6,182,212,0.2)]">
         <span className="text-cyan-400 font-bold text-xs uppercase tracking-wider">{title}</span>
@@ -75,21 +105,21 @@ export default function CircuitHelper() {
         <div className="mb-4 max-w-[250px]">
           <div className="relative bg-slate-900/90 backdrop-blur-md border border-cyan-500/50 rounded-2xl rounded-br-sm p-4 shadow-[0_0_15px_rgba(6,182,212,0.3)] transform transition-all duration-300">
             <p className="text-sm font-mono text-cyan-50 font-medium leading-relaxed">
-              {message || "Click me to initialize comms!"}
+              {message || (language === 'ur' ? "روبوٹ دوست شروع کرنے کے لیے دبائیں!" : "Click me to initialize comms!")}
             </p>
             {!hasInteracted && (
               <p className="text-[10px] text-cyan-500/70 mt-2 uppercase tracking-wider animate-pulse">
-                Click me to enable audio!
+                {language === 'ur' ? "آواز شروع کرنے کے لیے کلک کریں!" : "Click me to enable audio!"}
               </p>
             )}
             {!isConnected && hasInteracted && !hasError && (
               <p className="text-[10px] text-amber-500/70 mt-2 uppercase tracking-wider animate-pulse">
-                Connecting to Live Audio...
+                {language === 'ur' ? "رابطہ قائم ہو رہا ہے..." : "Connecting to Live Audio..."}
               </p>
             )}
             {hasError && hasInteracted && (
               <p className="text-[10px] text-emerald-500/70 mt-2 uppercase tracking-wider">
-                Using built-in companion voice.
+                {language === 'ur' ? "کمپیوٹر کی آواز استعمال ہو رہی ہے۔" : "Using built-in companion voice."}
               </p>
             )}
           </div>

@@ -8,11 +8,10 @@ interface SimulationChamberProps {
   resultMsg: string | null;
   errorMsg: string | null;
   onClear: () => void;
-  // Expose an imperative handle if we want the canvas to trigger visual effects?
-  // Actually, we can just receive the usedTools in the return of onExecute.
+  onClose: () => void;
 }
 
-export default function SimulationChamber({ onExecute, isRunning, resultMsg, errorMsg, onClear }: SimulationChamberProps) {
+export default function SimulationChamber({ onExecute, isRunning, resultMsg, errorMsg, onClear, onClose }: SimulationChamberProps) {
   const [input, setInput] = useState('');
   const [toolDeployed, setToolDeployed] = useState<string | null>(null);
   const [history, setHistory] = useState<{role: 'user'|'agent', content: string}[]>([]);
@@ -76,13 +75,22 @@ export default function SimulationChamber({ onExecute, isRunning, resultMsg, err
           <Cpu className="w-5 h-5 text-indigo-400" />
           <h2 className="text-indigo-100 font-black text-sm tracking-widest uppercase">Simulation Chamber</h2>
         </div>
-        <button 
-          onClick={() => setTtsEnabled(!ttsEnabled)}
-          className={`p-2 rounded-lg transition-colors ${ttsEnabled ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
-          title="Toggle Robot Voice"
-        >
-          <Volume2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setTtsEnabled(!ttsEnabled)}
+            className={`p-2 rounded-lg transition-colors ${ttsEnabled ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
+            title="Toggle Robot Voice"
+          >
+            <Volume2 className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={onClose}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs"
+            title="Close Chamber"
+          >
+            ❌
+          </button>
+        </div>
       </div>
 
       {isQuestComplete && (

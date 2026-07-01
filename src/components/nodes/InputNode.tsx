@@ -1,19 +1,31 @@
 import { Handle, Position } from "@xyflow/react";
-import { Terminal } from "lucide-react";
+import { Mic } from "lucide-react";
 
 export default function InputNode({ data, isConnectable }: any) {
   return (
-    <div className="w-64 rounded-xl sci-fi-panel hologram-effect border-2 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.3)] text-slate-200 font-sans overflow-visible">
-      <Handle type="source" position={Position.Right} id="text-out" isConnectable={isConnectable} style={{ top: "50%", width: 16, height: 16, borderRadius: 4, background: "#f59e0b", border: "2px solid #0f172a", right: -8 }} />
-      <div className="absolute text-[10px] font-black text-amber-500 uppercase tracking-widest -right-5 top-[35px] rotate-90 origin-bottom-left">DATA</div>
+    <div className="w-64 rounded-2xl bg-slate-900 border-2 border-amber-400 shadow-[0_4px_15px_rgba(245,158,11,0.2)] text-slate-100 overflow-visible transition-all hover:scale-[1.02] pop-in-node">
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        id="text-out" 
+        isConnectable={isConnectable} 
+        style={{ top: "50%", background: "#f59e0b" }} 
+      />
+      <div className="absolute text-[9px] font-bold text-amber-400 uppercase tracking-widest -right-5 top-[35px] rotate-90 origin-bottom-left">LISTEN</div>
 
-      <div className="flex items-center gap-3 px-3 py-2 border-b border-amber-500/30 bg-amber-950/40 relative z-10">
-        <div className="p-1.5 bg-amber-500 rounded text-slate-900"><Terminal className="w-4 h-4" /></div>
-        <div><h3 className="font-black text-xs tracking-wider text-amber-100 uppercase">Data Uplink</h3></div>
+      <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-amber-500/25 bg-amber-500/10 rounded-t-2xl">
+        <div className="p-1 bg-amber-400 rounded-lg text-slate-950"><Mic className="w-4 h-4" /></div>
+        <h3 className="font-bold text-sm text-amber-200">👂 Ears (Input)</h3>
       </div>
 
-      <div className="p-3 relative z-10">
-        <input type="text" value={data.text} onChange={(e) => data.onChange && data.onChange("text", e.target.value)} placeholder="ENTER COMMAND..." className="w-full text-xs font-mono font-bold bg-black/60 border border-amber-500/30 rounded p-2 text-amber-400 placeholder-amber-700/50 focus:outline-none focus:border-amber-500" />
+      <div className="p-3">
+        <input 
+          type="text" 
+          value={data.text} 
+          onChange={(e) => data.onChange && data.onChange("text", e.target.value)} 
+          placeholder="Say hello to Circuit here..." 
+          className="w-full text-xs bg-slate-950 border border-amber-500/30 rounded-xl p-2.5 text-amber-300 placeholder-amber-700/60 focus:outline-none focus:border-amber-400 font-sans" 
+        />
       </div>
     </div>
   );

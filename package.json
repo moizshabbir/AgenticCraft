@@ -9,7 +9,6 @@
     "start": "node dist/server.cjs"
   },
   "dependencies": {
-    "@google/genai": "^2.10.0",
     "@radix-ui/react-slot": "^1.1.0",
     "@tailwindcss/vite": "^4.0.0",
     "@xyflow/react": "^12.11.1",
@@ -22,7 +21,7 @@
     "react-router-dom": "^6.30.4",
     "tailwind-merge": "^2.6.1",
     "tailwindcss-animate": "^1.0.7",
-    "ws": "^8.21.0",
+    "text2wav": "^0.0.14",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -30,7 +29,6 @@
     "@types/node": "^20.12.7",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.5.2",
     "esbuild": "^0.24.0",

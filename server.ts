@@ -1,14 +1,9 @@
+import "./src/utils/loadEnv";
 import express from "express";
 import path from "path";
+import text2wav from "text2wav";
 import { createServer as createViteServer } from "vite";
 import { executeAgentGraph } from "./src/engine/executor";
-import { WebSocketServer } from "ws";
-import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
-
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-});
 
 async function startServer() {
   const app = express();
@@ -37,6 +32,76 @@ async function startServer() {
     res.json(appData);
   });
 
+  app.get("/api/tts", async (req, res) => {
+    const text = req.query.text as string;
+    const lang = (req.query.lang as string) || "ur";
+    if (!text) {
+      return res.status(400).json({ error: "Text parameter is required" });
+    }
+
+    // 1. Try local XTTS-v2 API server on port 8020
+    const xttsUrl = "http://localhost:8020/tts_to_audio/";
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s fast check
+
+      const response = await fetch(xttsUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: text,
+          language: lang === "ur" ? "ur" : "en",
+          speaker_wav: "female.wav"
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const audioBuffer = await response.arrayBuffer();
+        res.setHeader("Content-Type", "audio/wav");
+        return res.send(Buffer.from(audioBuffer));
+      }
+    } catch (err: any) {
+      // Local XTTS-v2 is not running
+    }
+
+    // 2. Try Free Google Translate TTS (Sweet, natural human voice, zero keys or setup needed)
+    try {
+      const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang === "ur" ? "ur" : "en"}&client=tw-ob&q=${encodeURIComponent(text)}`;
+      const response = await fetch(googleTtsUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36"
+        }
+      });
+
+      if (response.ok) {
+        const audioBuffer = await response.arrayBuffer();
+        res.setHeader("Content-Type", "audio/mpeg");
+        return res.send(Buffer.from(audioBuffer));
+      }
+    } catch (err: any) {
+      console.warn("Google Translate TTS failed, falling back to local Wasm synthesis.");
+    }
+
+    // 3. Offline Wasm fallback
+    try {
+      const options = {
+        voice: lang === "ur" ? "ur" : "en",
+        amplitude: 120, 
+        pitch: lang === "ur" ? 75 : 80,   
+        speed: 130   
+      };
+      const wavBuffer = await text2wav(text, options);
+      res.setHeader("Content-Type", "audio/wav");
+      res.send(Buffer.from(wavBuffer));
+    } catch (err: any) {
+      console.error("Local Wasm TTS failed:", err);
+      res.status(500).json({ error: "Local TTS failed: " + err.message });
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
@@ -46,84 +111,6 @@ async function startServer() {
     app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
   }
 
-  const server = app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));
-
-  // Setup WebSocket for Gemini Live API
-  const wss = new WebSocketServer({ server, path: '/live' });
-
-  wss.on("connection", async (clientWs) => {
-    console.log("New WebSocket connection to /live");
-    console.log("Has API key?", !!process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY?.substring(0, 5));
-    try {
-      console.log("Connecting to Gemini Live API...");
-      const session = await ai.live.connect({
-        model: "gemini-3.1-flash-live-preview",
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
-          },
-          systemInstruction: {
-            parts: [{ text: "You are Circuit, a sweet, gentle, ultra-natural AI companion for kids. The user will provide you with a script. You MUST read the script EXACTLY as written, word for word, with a warm, energetic, and natural voice. Do NOT add any conversational filler like 'Okay' or 'Sure'. ONLY speak the provided script." }]
-          },
-        },
-        callbacks: {
-          onmessage: (message: LiveServerMessage) => {
-            if (message.serverContent?.modelTurn) {
-              const parts = message.serverContent.modelTurn.parts || [];
-              for (const part of parts) {
-                if (part.inlineData && part.inlineData.data) {
-                  const audio = part.inlineData.data;
-                  if (clientWs.readyState === clientWs.OPEN) {
-                    clientWs.send(JSON.stringify({ audio }));
-                  }
-                }
-              }
-            }
-            if (message.serverContent?.interrupted && clientWs.readyState === clientWs.OPEN) {
-              clientWs.send(JSON.stringify({ interrupted: true }));
-            }
-          },
-          onclose: (event) => {
-            console.log("Gemini Live session closed", event);
-            if (clientWs.readyState === clientWs.OPEN) {
-              clientWs.send(JSON.stringify({ error: "Live API closed: " + event?.reason }));
-              clientWs.close();
-            }
-          },
-          onerror: (error) => {
-            console.log("Gemini Live API error:", error);
-            if (clientWs.readyState === clientWs.OPEN) {
-              clientWs.send(JSON.stringify({ error: "Live API error" }));
-            }
-          }
-        },
-      });
-      console.log("Connected to Gemini Live API!");
-
-      clientWs.on("message", (data) => {
-        try {
-          const msg = JSON.parse(data.toString());
-          console.log("Received WS message from client:", msg);
-          if (msg.text) {
-            session.sendRealtimeInput([
-              { text: `Script to read: "${msg.text}"` }
-            ]);
-          }
-        } catch (err) {
-          console.error("WS parse error:", err);
-        }
-      });
-
-      clientWs.on("close", () => {
-        console.log("Client WS closed");
-        session.close();
-      });
-    } catch (err) {
-      console.error("Gemini Live connection error:", err);
-      import("fs").then(fs => fs.appendFileSync("error.log", err.toString() + "\\n" + (err.stack || "") + "\\n"));
-      clientWs.close();
-    }
-  });
+  app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));
 }
 startServer();
